@@ -1,0 +1,182 @@
+version: '3.8'
+
+networks:
+  corp_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+  dmz_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
+
+services:
+  # SIEM Stack
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.16.3
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - ./data/elasticsearch:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - corp_network
+    restart: unless-stopped
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:7.16.3
+    container_name: logstash
+    volumes:
+      - ./configs/logstash/pipeline:/usr/share/logstash/pipeline
+      - ./configs/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml
+    ports:
+      - "5044:5044"
+      - "5000:5000/tcp"
+      - "5000:5000/udp"
+      - "9600:9600"
+    environment:
+      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+    networks:
+      - corp_network
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.16.3
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    networks:
+      - corp_network
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+
+  # Network Infrastructure
+  firewall:
+    build:
+      context: ./configs/firewall
+      dockerfile: Dockerfile.firewall
+    container_name: firewall
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - ./configs/firewall:/config
+    networks:
+      corp_network:
+        ipv4_address: 172.20.0.2
+      dmz_network:
+        ipv4_address: 172.30.0.2
+    restart: unless-stopped
+
+  suricata:
+    image: jasonish/suricata:latest
+    container_name: suricata
+    cap_add:
+      - NET_ADMIN
+      - SYS_NICE
+      - NET_RAW
+    volumes:
+      - ./configs/suricata:/etc/suricata
+      - ./data/suricata-logs:/var/log/suricata
+    networks:
+      - corp_network
+    restart: unless-stopped
+    command: -i eth0
+
+  # Corporate Infrastructure
+  corporate-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: corporate-server
+    hostname: corporate-server
+    volumes:
+      - ./configs/corporate-server:/etc/filebeat
+      - ./configs/sensitive_files:/opt/sensitive_data
+      - ./scripts:/scripts
+    networks:
+      - corp_network
+    ports:
+      - "2222:22"  # SSH
+      - "8080:80"  # HTTP
+    restart: unless-stopped
+
+  workstation1:
+    image: ubuntu:20.04
+    container_name: workstation1
+    hostname: workstation1
+    volumes:
+      - ./scripts:/scripts
+    networks:
+      - corp_network
+    command: >
+      bash -c "apt-get update && apt-get install -y openssh-client curl python3 python3-pip && 
+              pip3 install requests paramiko &&
+              tail -f /dev/null"
+    restart: unless-stopped
+
+  workstation2:
+    image: ubuntu:20.04
+    container_name: workstation2
+    hostname: workstation2
+    volumes:
+      - ./scripts:/scripts
+    networks:
+      - corp_network
+    command: >
+      bash -c "apt-get update && apt-get install -y openssh-client curl python3 python3-pip && 
+              pip3 install requests paramiko &&
+              tail -f /dev/null"
+    restart: unless-stopped
+
+  # Attacker Machine
+  attacker:
+    image: kalilinux/kali-rolling:latest
+    container_name: attacker
+    hostname: attacker
+    volumes:
+      - ./scripts:/scripts
+    networks:
+      - dmz_network
+    command: >
+      bash -c "apt-get update && apt-get install -y nmap hydra metasploit-framework python3 python3-pip sshpass && 
+              pip3 install requests paramiko scapy &&
+              tail -f /dev/null"
+    restart: unless-stopped
+
+  # For module 4 - Incident Response Practice
+  soc-analyst:
+    image: ubuntu:20.04
+    container_name: soc-analyst
+    hostname: soc-analyst
+    volumes:
+      - ./scripts:/scripts
+      - ./data/evidence:/evidence
+    networks:
+      - corp_network
+    command: >
+      bash -c "apt-get update && apt-get install -y openssh-client curl python3 python3-pip vim tcpdump wireshark-cli && 
+              pip3 install requests && 
+              tail -f /dev/null"
+    restart: unless-stopped

@@ -1,0 +1,23 @@
+%YAML 1.1
+---
+# Suricata configuration for the lab
+
+vars:
+  address-groups:
+    HOME_NET: "[172.20.0.0/16,172.30.0.0/16]"
+    EXTERNAL_NET: "!$HOME_NET"
+  port-groups:
+    HTTP_PORTS: "80"
+    SHELLCODE_PORTS: "!80"
+    SSH_PORTS: 22
+
+default-rule-path: /etc/suricata/rules
+rule-files:
+  - suricata.rules
+  - local.rules
+
+outputs:
+  - eve-log:
+      enabled: yes
+      filetype: regular
+      filename: /var/log/suricata/eve.json

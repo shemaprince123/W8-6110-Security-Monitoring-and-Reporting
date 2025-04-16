@@ -1,0 +1,22 @@
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /var/log/auth.log
+    - /var/log/syslog
+  fields:
+    type: syslog
+    server_type: corporate
+
+- type: log
+  enabled: true
+  paths:
+    - /var/log/apache2/access.log
+  fields:
+    type: apache
+    server_type: corporate
+
+output.logstash:
+  hosts: ["logstash:5044"]
+
+logging.level: info

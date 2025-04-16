@@ -1,0 +1,62 @@
+version: '3.8'
+
+networks:
+  corp_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+  dmz_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
+
+services:
+  # Combined ELK Stack
+  elk:
+    image: sebp/elk:7.17.0
+    container_name: elk
+    ports:
+      - "5601:5601"  # Kibana
+      - "9200:9200"  # Elasticsearch
+      - "5044:5044"  # Logstash Beats input
+    volumes:
+      - ./data/elk:/var/lib/elasticsearch
+    environment:
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    networks:
+      - corp_network
+    restart: unless-stopped
+
+  # Corporate Infrastructure
+  corporate-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: corporate-server
+    hostname: corporate-server
+    volumes:
+      - ./configs/corporate-server:/etc/filebeat
+      - ./configs/sensitive_files:/opt/sensitive_data
+      - ./scripts:/scripts
+    networks:
+      - corp_network
+    ports:
+      - "2222:22"  # SSH
+      - "8080:80"  # HTTP
+    restart: unless-stopped
+
+  # Simplified attacker setup
+  attacker:
+    image: kalilinux/kali-rolling:latest
+    container_name: attacker
+    hostname: attacker
+    volumes:
+      - ./scripts:/scripts
+    networks:
+      - dmz_network
+    command: >
+      bash -c "apt-get update && apt-get install -y nmap hydra python3 python3-pip sshpass && 
+              tail -f /dev/null"
+    restart: unless-stopped
