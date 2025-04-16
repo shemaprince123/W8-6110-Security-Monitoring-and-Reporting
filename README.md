@@ -11,7 +11,7 @@ Traditional virtualized labs often present challenges such as high resource cons
 
 The lab architecture implements a defense-in-depth approach with multiple security layers:
 
-![Lab Architecture Diagram](images/Figure1.png)
+
 
 ### Network Segmentation
 
@@ -48,7 +48,7 @@ Focused on establishing meaningful security monitoring metrics:
 - System resource utilization tracking
 - Firewall and IDS/IPS alert monitoring
 
-![Key Metrics Dashboard](images/Figure3.png)
+
 
 ### Module 2: Configuring SIEM Alerts and Dashboards
 
@@ -57,7 +57,6 @@ Configuration of detection rules for:
 - Unusual data transfer detection
 - Unauthorized access attempts to sensitive files
 
-![Alert Configuration in Kibana](images/Figure5.png)
 
 ### Module 3: Analyzing Suspicious Logs
 
@@ -65,9 +64,6 @@ Development of log analysis skills to identify patterns indicating suspicious ac
 - Brute force attack detection
 - Data exfiltration identification
 - Web application attack recognition
-
-![Log Analysis in Kibana](images/Figure7.png)
-![Attack Pattern Recognition](images/Figure8.png)
 
 ### Module 4: Incident Response Simulation
 
@@ -78,9 +74,6 @@ Implementation of a formal incident response plan following standard methodologi
 - Recovery processes
 - Documentation and lessons learned
 
-![Incident Response Workflow](images/Figure10.png)
-![Containment Actions](images/Figure11.png)
-![Evidence Collection](images/Figure12.png)
 
 ## Getting Started
 
